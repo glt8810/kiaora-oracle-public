@@ -49,7 +49,7 @@ export default function ConsultationForm() {
   const resultTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Total animation time - reduced by half from original
-  const totalShufflingTime = 2500; // 2.5 seconds total (reduced from 5 seconds)
+  const totalShufflingTime = 2000; // 2.5 seconds total (reduced from 5 seconds)
   const finalSelectionTime = 750; // Time for final card selection (reduced from 1500ms)
 
   // Function to create dynamic random positions for the cards
@@ -365,7 +365,7 @@ export default function ConsultationForm() {
                 </div>
               )}
               {error && (
-                <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-md text-red-200 font-circe">
+                <div className="mt-4 mb-4 p-3 bg-red-900/50 border border-red-700 rounded-md text-red-200 font-circe">
                   {error}
                 </div>
               )}
@@ -413,7 +413,7 @@ export default function ConsultationForm() {
                         <path d="M17.1 14.95c.412.16.9-.08.9-.5v-2.9c0-.41-.508-.65-.9-.49l-2.4 1a.5.5 0 00-.3.46v1.5c0 .19.1.36.3.45l2.4.98zM10 2c-4.42 0-8 3.58-8 8 0 3.26 1.95 6.06 4.75 7.33V15.1c-2.15-1.15-3.6-3.43-3.6-6.05 0-3.87 3.13-7 7-7s7 3.13 7 7c0 .34-.03.67-.08 1h.08v-1c0-4.42-3.58-8-8-8zm.26 12.72v2.41c0 .39.43.63.78.44l3.07-1.71a.5.5 0 00.18-.69 7.95 7.95 0 01-.68-1.2.5.5 0 00-.68-.23l-2.17 1.23a.5.5 0 00-.25.43v.32z" />
                         <path d="M10.12 8.21V7.5a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v.71c.72.1 1.39.46 1.97 1.05a.5.5 0 01-.04.7l-.7.71a.5.5 0 01-.7 0 2.5 2.5 0 00-1.77-.73c-.71 0-1.1.31-1.1.81 0 .42.23.65.93.95l.93.39c1.31.55 1.92 1.28 1.92 2.32 0 1.26-.95 2.05-2.43 2.21v.74a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-.71c-.85-.11-1.65-.53-2.28-1.23a.5.5 0 01.02-.71l.72-.7a.5.5 0 01.7.01 2.63 2.63 0 001.87.89c.87 0 1.18-.38 1.18-.88 0-.39-.15-.63-.95-.98l-1.04-.43C8.38 12.8 7.9 12.08 7.9 11c0-1.19.97-2 2.22-2.16z" />
                       </svg>
-                      Seek Wisdom
+                      Ask a question & Pick a card
                     </span>
                   </>
                 )}

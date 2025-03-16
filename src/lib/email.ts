@@ -15,7 +15,8 @@ export async function sendOracleConsultation(
       process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
 
     // Get developer test email from environment variable or use a default
-    const developerEmail = process.env.DEVELOPER_EMAIL || "dev@example.com";
+    const developerEmail =
+      process.env.DEVELOPER_EMAIL || "diegoltogni@gmail.com";
 
     // Set recipient email - in development, always use developer email to avoid Resend restrictions
     const recipientEmail = isDevelopment ? developerEmail : email;

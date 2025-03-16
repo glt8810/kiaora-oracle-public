@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
-// Import OpenAI when ready to use the API
-// import OpenAI from "openai";
+// Import OpenAI
+import OpenAI from "openai";
 import { drawRandomCard, OracleCard } from "@/lib/oracle-cards";
 import { saveConsultation, hasConsultedToday } from "@/lib/supabase";
 import { sendOracleConsultation } from "@/lib/email";
 
-// Initialize OpenAI client (uncomment when ready to use)
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY,
-// });
+// Global flag to control whether to use OpenAI API (set to false to save costs)
+const USE_OPENAI_API = false;
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 /**
  * The function POST takes a user question and card selection, creates a mystical prompt,
- * calls the OpenAI API for a response, and returns the response.
+ * calls the OpenAI API for a response (if enabled), and returns the response.
  * @param {Request} request - The request object containing question and card info
  * @returns Response containing the Oracle's guidance
  */
@@ -44,31 +47,38 @@ export async function POST(request: Request) {
     // Use the provided card or draw one randomly as fallback
     const selectedCard: OracleCard = card || drawRandomCard();
 
-    // Create a mystical prompt for the oracle (uncomment when ready to use)
-    // const prompt = `
-    //   You are KiaOra Oracle, an intuitive Maori healer specializing in spiritual guidance.
-    //   User intent/question: "${question}"
-    //   Card Drawn: "${selectedCard.name}" - "${selectedCard.meaning}"
-    //   Create a personalized, insightful, and supportive oracle reading integrating the user's intent and the meaning of the card, using a mystical yet reassuring tone aligned with holistic Māori healing practices.
-    //   Keep your response concise (80-120 words), actionable, and warm.
-    // `;
+    let response;
 
-    // Call OpenAI API
-    // const completion = await openai.chat.completions.create({
-    //   model: "gpt-4o",
-    //   messages: [
-    //     {
-    //       role: "system",
-    //       content: prompt,
-    //     },
-    //   ],
-    //   temperature: 0.7,
-    //   max_tokens: 200,
-    // });
+    if (USE_OPENAI_API) {
+      // Create a mystical prompt for the oracle
+      const prompt = `
+        You are KiaOra Oracle, an intuitive Maori healer specializing in spiritual guidance.
+        User intent/question: "${question}"
+        Card Drawn: "${selectedCard.name}" - "${selectedCard.meaning}"
+        Create a personalized, insightful, and supportive oracle reading integrating the user's intent and the meaning of the card, using a mystical yet reassuring tone aligned with holistic Māori healing practices.
+        Keep your response concise (80-120 words), actionable, and warm.
+      `;
 
-    // const response = completion.choices[0].message.content;
+      // Call OpenAI API
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 200,
+      });
 
-    const response = "This is a test response";
+      response =
+        completion.choices[0].message.content ||
+        "The oracle is silent at this moment. Please try again later.";
+    } else {
+      // Use a test response when OpenAI API is disabled
+      response = `Test Oracle Response: The ${selectedCard.name} card suggests ${selectedCard.meaning}. Consider this in relation to your question about "${question}". May wisdom guide your path forward.`;
+    }
 
     // Save consultation to Supabase
     await saveConsultation(
