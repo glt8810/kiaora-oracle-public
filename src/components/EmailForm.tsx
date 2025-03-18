@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import Image from "next/image";
+import Link from "next/link";
 
 interface EmailFormProps {
-  onSubmit: (email: string) => void;
+  onSubmit: (email: string, name: string) => void;
   onCancel: () => void;
   isOpen: boolean;
   selectedCard?: {
@@ -22,12 +24,18 @@ export default function EmailForm({
   selectedCard,
 }: EmailFormProps) {
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState("");
 
-  // Clear error when re-opening form
+  // Clear errors when re-opening form
   useEffect(() => {
     if (isOpen) {
       setEmailError("");
+      setNameError("");
+      setTermsError("");
     }
   }, [isOpen]);
 
@@ -43,6 +51,12 @@ export default function EmailForm({
   if (!isOpen) return null;
 
   const handleSubmit = () => {
+    // Name is required
+    if (!name.trim()) {
+      setNameError("Please enter your name");
+      return;
+    }
+
     // Email is required
     if (!email.trim()) {
       setEmailError("Please enter your email to receive your reading");
@@ -56,9 +70,17 @@ export default function EmailForm({
       return;
     }
 
-    onSubmit(email);
-    // Reset email field after submission
+    // Terms must be accepted
+    if (!termsAccepted) {
+      setTermsError("Please accept the terms and conditions");
+      return;
+    }
+
+    onSubmit(email, name);
+    // Reset fields after submission
     setEmail("");
+    setName("");
+    setTermsAccepted(false);
   };
 
   return (
@@ -100,6 +122,34 @@ export default function EmailForm({
         <div className="mt-4 sm:mt-6">
           <div className="inline-block mb-1 sm:mb-2">
             <Label
+              htmlFor="name"
+              className="font-circe text-white text-base sm:text-lg font-bold drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] [text-shadow:_0_1px_1px_rgb(0_0_0_/_80%)]"
+            >
+              Name <span className="text-soft-gold">*</span>
+            </Label>
+          </div>
+          <Input
+            id="name"
+            placeholder="Your name"
+            className="mt-1 bg-twilight-blue border-2 border-soft-gold text-white text-base sm:text-lg p-3 sm:p-4
+                     font-medium placeholder:text-ethereal-mist/70 focus:ring-2 
+                     focus:ring-soft-gold shadow-inner w-full"
+            value={name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setName(e.target.value)
+            }
+            autoFocus
+          />
+          {nameError && (
+            <p className="mt-2 text-red-300 text-sm sm:text-base font-circe font-bold drop-shadow-sm">
+              {nameError}
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4 sm:mt-6">
+          <div className="inline-block mb-1 sm:mb-2">
+            <Label
               htmlFor="email"
               className="font-circe text-white text-base sm:text-lg font-bold drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] [text-shadow:_0_1px_1px_rgb(0_0_0_/_80%)]"
             >
@@ -127,6 +177,39 @@ export default function EmailForm({
             We value your privacy. Your email will only be used to deliver your
             reading.
           </p>
+        </div>
+
+        <div className="mt-4 sm:mt-6">
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="terms"
+              checked={termsAccepted}
+              onCheckedChange={(checked: boolean) => {
+                setTermsAccepted(checked);
+                setTermsError("");
+              }}
+              className="mt-1"
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="terms"
+                className="font-circe text-white text-sm sm:text-base leading-relaxed"
+              >
+                I accept the{" "}
+                <Link
+                  href="/terms"
+                  className="text-soft-gold hover:text-mystic-purple underline"
+                >
+                  terms and conditions
+                </Link>
+              </Label>
+            </div>
+          </div>
+          {termsError && (
+            <p className="mt-2 text-red-300 text-sm sm:text-base font-circe font-bold drop-shadow-sm">
+              {termsError}
+            </p>
+          )}
         </div>
 
         <div className="mt-4 sm:mt-6 flex flex-col-reverse gap-3 sm:gap-4">

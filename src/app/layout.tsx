@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { seasonsFont, circeFont, quincyFont } from "@/lib/fonts";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KiaOra Oracle",
-  description: "Mystical insights and guidance",
+  title: "Kiaora Oracle",
+  description: "Receive mystical guidance from our Māori healer",
 };
 
 export default function RootLayout({
@@ -30,6 +31,13 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
+        <Toaster
+          position="top-center"
+          offset="80px"
+          theme="dark"
+          expand
+          richColors
+        />
       </body>
     </html>
   );

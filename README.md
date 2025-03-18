@@ -44,6 +44,9 @@ A mystical web application built with Next.js, TypeScript, Shadcn UI, TailwindCS
    # Resend API Key
    RESEND_API_KEY=your_resend_api_key_here
 
+   # Sender Email
+   DEVELOPER_EMAIL=your_sender_email_here
+
    # Supabase Configuration
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here

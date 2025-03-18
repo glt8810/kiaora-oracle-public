@@ -21,7 +21,7 @@ const openai = new OpenAI({
  */
 export async function POST(request: Request) {
   try {
-    const { question, card, email } = await request.json();
+    const { question, card, email, name } = await request.json();
 
     if (!question) {
       return NextResponse.json(
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
       // Create a mystical prompt for the oracle
       const prompt = `
         You are KiaOra Oracle, an intuitive Maori healer specializing in spiritual guidance.
+        User name: "${name || "Seeker"}"
         User intent/question: "${question}"
         Card Drawn: "${selectedCard.name}" - "${selectedCard.meaning}"
         Create a personalized, insightful, and supportive oracle reading integrating the user's intent and the meaning of the card, using a mystical yet reassuring tone aligned with holistic Māori healing practices.
@@ -77,7 +78,11 @@ export async function POST(request: Request) {
         "The oracle is silent at this moment. Please try again later.";
     } else {
       // Use a test response when OpenAI API is disabled
-      response = `Test Oracle Response: The ${selectedCard.name} card suggests ${selectedCard.meaning}. Consider this in relation to your question about "${question}". May wisdom guide your path forward.`;
+      response = `Dear ${name || "Seeker"}, the ${
+        selectedCard.name
+      } card suggests ${
+        selectedCard.meaning
+      }. Consider this in relation to your question about ${question}. May wisdom guide your path forward.`;
     }
 
     // Save consultation to Supabase
@@ -86,13 +91,14 @@ export async function POST(request: Request) {
       response,
       email,
       selectedCard.name,
-      selectedCard.meaning
+      selectedCard.meaning,
+      name
     );
 
     // Send email if an email address was provided
     if (email) {
       try {
-        await sendOracleConsultation(email, question, response);
+        await sendOracleConsultation(email, question, response, name);
       } catch (emailError) {
         // Log the error but don't fail the whole request
         console.error("Failed to send email:", emailError);

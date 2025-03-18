@@ -7,7 +7,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function sendOracleConsultation(
   email: string,
   question: string,
-  response: string
+  response: string,
+  name?: string
 ) {
   try {
     // Check if we're in development/testing environment
@@ -37,6 +38,11 @@ export async function sendOracleConsultation(
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
           <h1 style="color: #4B0082; text-align: center;">KiaOra Oracle</h1>
+          ${
+            name
+              ? `<p style="color: #666; text-align: center;">Dear ${name},</p>`
+              : ""
+          }
           <div style="background-color: #1A1F4D; color: #F5F5F5; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h2 style="color: #DAA520; margin-top: 0;">Your Question</h2>
             <p style="color: #D3D3D3;">${question}</p>

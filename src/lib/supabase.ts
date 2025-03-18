@@ -12,7 +12,8 @@ export async function saveConsultation(
   response: string | null,
   email?: string,
   cardName?: string,
-  cardMeaning?: string
+  cardMeaning?: string,
+  fullName?: string
 ) {
   // If response is null, set a fallback message
   const safeResponse = response || "No response available";
@@ -27,6 +28,7 @@ export async function saveConsultation(
           email: email || null,
           card_name: cardName,
           card_meaning: cardMeaning,
+          full_name: fullName || null,
           created_at: new Date().toISOString(),
         },
       ])
