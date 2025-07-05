@@ -1,118 +1,128 @@
 import { NextResponse } from "next/server";
-// Import OpenAI
-import OpenAI from "openai";
-import { drawRandomCard, OracleCard } from "@/lib/oracle-cards";
-import { saveConsultation, hasConsultedToday } from "@/lib/supabase";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { google } from "googleapis";
+import fs from "fs";
+import { parse } from "csv-parse/sync";
+import { stringify } from "csv-stringify/sync";
+import { OracleCard, drawRandomCard } from "@/lib/oracle-cards";
 import { sendOracleConsultation } from "@/lib/email";
 
-// Global flag to control whether to use OpenAI API (set to false to save costs)
-const USE_OPENAI_API = false;
+// --- CONFIGURATION ---
+const KEY_FILE_PATH = "kiaora-oracle-a36c160aed51.json"; // Your service account key file
+const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
+const SUBMISSIONS_FILE = 'submissions.csv';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize the Google Gemini AI Client
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 /**
- * The function POST takes a user question and card selection, creates a mystical prompt,
- * calls the OpenAI API for a response (if enabled), and returns the response.
- * @param {Request} request - The request object containing question and card info
- * @returns Response containing the Oracle's guidance
+ * Checks if a user has already made a submission today.
  */
+async function hasConsultedToday(email: string): Promise<boolean> {
+  if (!fs.existsSync(SUBMISSIONS_FILE)) return false;
+  const fileContent = fs.readFileSync(SUBMISSIONS_FILE, 'utf8');
+  if (fileContent.trim() === '') return false;
+  
+  const records = parse(fileContent, { columns: true, skip_empty_lines: true });
+  const userRecord = records.find((record: any) => record.Email === email);
+
+  if (userRecord) {
+    const lastSubmitted = new Date(userRecord.LastSubmitted);
+    const today = new Date();
+    return lastSubmitted.toDateString() === today.toDateString();
+  }
+  return false;
+}
+
+/**
+ * Updates the submission timestamp for a user.
+ */
+async function updateSubmissionTime(email: string) {
+  let records: any[] = [];
+  if (fs.existsSync(SUBMISSIONS_FILE)) {
+      const fileContent = fs.readFileSync(SUBMISSIONS_FILE, 'utf8');
+      if (fileContent.trim() !== '') {
+        records = parse(fileContent, { columns: true, skip_empty_lines: true });
+      }
+  }
+
+  const userIndex = records.findIndex((record: any) => record.Email === email);
+  const now = new Date().toISOString();
+
+  if (userIndex !== -1) {
+    records[userIndex].LastSubmitted = now;
+  } else {
+    records.push({ Email: email, LastSubmitted: now });
+  }
+  
+  const csvString = stringify(records, { header: true });
+  fs.writeFileSync(SUBMISSIONS_FILE, csvString);
+}
+
+/**
+ * Adds a new entry to the Google Sheet.
+ */
+async function addToGoogleSheet(email: string, name: string) {
+    const auth = new google.auth.GoogleAuth({
+        keyFile: KEY_FILE_PATH,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+    await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Sheet1!A:C',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+            values: [[email, name, new Date().toISOString()]],
+        },
+    });
+}
+
 export async function POST(request: Request) {
   try {
     const { question, card, email, name } = await request.json();
 
     if (!question) {
-      return NextResponse.json(
-        { error: "Question is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Question is required" }, { status: 400 });
     }
 
-    // If an email was provided, check if they've already consulted today
     if (email) {
-      const hasAlreadyConsulted = await hasConsultedToday(email);
-      if (hasAlreadyConsulted) {
-        return NextResponse.json(
-          {
-            error:
-              "You have already consulted the oracle today. Please return tomorrow for new guidance.",
-          },
-          { status: 429 } // Too Many Requests
-        );
+      if (await hasConsultedToday(email)) {
+        return NextResponse.json({ error: "You have already consulted the oracle today. Please return tomorrow for new guidance." }, { status: 429 });
       }
     }
 
-    // Use the provided card or draw one randomly as fallback
     const selectedCard: OracleCard = card || drawRandomCard();
+    let responseText;
+    
+    // --- Gemini API Call ---
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const prompt = `You are KiaOra Oracle, an intuitive Maori healer specializing in spiritual guidance. User name: "${name || "Seeker"}" User intent/question: "${question}" Card Drawn: "${selectedCard.name}" - "${selectedCard.meaning}" Create a personalized, insightful, and supportive oracle reading integrating the user's intent and the meaning of the card, using a mystical yet reassuring tone aligned with holistic Māori healing practices. Keep your response concise (80-120 words), actionable, and warm.`;
 
-    let response;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    responseText = response.text();
+    // --- End Gemini API Call ---
 
-    if (USE_OPENAI_API) {
-      // Create a mystical prompt for the oracle
-      const prompt = `
-        You are KiaOra Oracle, an intuitive Maori healer specializing in spiritual guidance.
-        User name: "${name || "Seeker"}"
-        User intent/question: "${question}"
-        Card Drawn: "${selectedCard.name}" - "${selectedCard.meaning}"
-        Create a personalized, insightful, and supportive oracle reading integrating the user's intent and the meaning of the card, using a mystical yet reassuring tone aligned with holistic Māori healing practices.
-        Keep your response concise (80-120 words), actionable, and warm.
-      `;
-
-      // Call OpenAI API
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 200,
-      });
-
-      response =
-        completion.choices[0].message.content ||
-        "The oracle is silent at this moment. Please try again later.";
-    } else {
-      // Use a test response when OpenAI API is disabled
-      response = `Dear ${name || "Seeker"}, the ${
-        selectedCard.name
-      } card suggests ${
-        selectedCard.meaning
-      }. Consider this in relation to your question about ${question}. May wisdom guide your path forward.`;
+    if (!responseText) {
+        responseText = "The oracle is silent at this moment. Please try again later.";
     }
 
-    // Save consultation to Supabase
-    await saveConsultation(
-      question,
-      response,
-      email,
-      selectedCard.name,
-      selectedCard.meaning,
-      name
-    );
-
-    // Send email if an email address was provided
+    // Update submission records and send email
     if (email) {
-      try {
-        await sendOracleConsultation(email, question, response, name);
-      } catch (emailError) {
-        // Log the error but don't fail the whole request
-        console.error("Failed to send email:", emailError);
-      }
+        await updateSubmissionTime(email);
+        await addToGoogleSheet(email, name);
+        await sendOracleConsultation(email, question, responseText, name);
     }
-
-    // Return just the response as the card info is already known to the frontend
+    
     return NextResponse.json({
-      response,
+      response: responseText,
     });
+
   } catch (error) {
     console.error("Oracle API error:", error);
     return NextResponse.json(
-      { error: "Failed to consult the oracle" },
+      { error: "Failed to consult the oracle. " + (error as Error).message },
       { status: 500 }
     );
   }
