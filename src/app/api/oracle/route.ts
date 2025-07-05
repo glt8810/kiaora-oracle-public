@@ -1,81 +1,79 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { google } from "googleapis";
-import fs from "fs";
-import { parse } from "csv-parse/sync";
-import { stringify } from "csv-stringify/sync";
 import { OracleCard, drawRandomCard } from "@/lib/oracle-cards";
 import { sendOracleConsultation } from "@/lib/email";
 
 // --- CONFIGURATION ---
-const KEY_FILE_PATH = "kiaora-oracle-a36c160aed51.json"; // Your service account key file
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
-const SUBMISSIONS_FILE = 'submissions.csv';
 
 // Initialize the Google Gemini AI Client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-/**
- * Checks if a user has already made a submission today.
- */
-async function hasConsultedToday(email: string): Promise<boolean> {
-  if (!fs.existsSync(SUBMISSIONS_FILE)) return false;
-  const fileContent = fs.readFileSync(SUBMISSIONS_FILE, 'utf8');
-  if (fileContent.trim() === '') return false;
-  
-  const records = parse(fileContent, { columns: true, skip_empty_lines: true });
-  const userRecord = records.find((record: any) => record.Email === email);
-
-  if (userRecord) {
-    const lastSubmitted = new Date(userRecord.LastSubmitted);
-    const today = new Date();
-    return lastSubmitted.toDateString() === today.toDateString();
-  }
-  return false;
+// Function to get an authenticated Google Sheets client
+async function getSheetsClient() {
+    const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    if (!serviceAccountJson) {
+        throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set.");
+    }
+    const credentials = JSON.parse(serviceAccountJson);
+    const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    return google.sheets({ version: 'v4', auth });
 }
 
 /**
- * Updates the submission timestamp for a user.
+ * Checks if a user has already made a submission today using the Google Sheet.
  */
-async function updateSubmissionTime(email: string) {
-  let records: any[] = [];
-  if (fs.existsSync(SUBMISSIONS_FILE)) {
-      const fileContent = fs.readFileSync(SUBMISSIONS_FILE, 'utf8');
-      if (fileContent.trim() !== '') {
-        records = parse(fileContent, { columns: true, skip_empty_lines: true });
-      }
-  }
+async function hasConsultedToday(email: string): Promise<boolean> {
+    try {
+        const sheets = await getSheetsClient();
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet1!A:C', // Check columns for Email and Timestamp
+        });
 
-  const userIndex = records.findIndex((record: any) => record.Email === email);
-  const now = new Date().toISOString();
-
-  if (userIndex !== -1) {
-    records[userIndex].LastSubmitted = now;
-  } else {
-    records.push({ Email: email, LastSubmitted: now });
-  }
-  
-  const csvString = stringify(records, { header: true });
-  fs.writeFileSync(SUBMISSIONS_FILE, csvString);
+        const rows = response.data.values;
+        if (rows && rows.length) {
+            const today = new Date().toDateString();
+            return rows.some(row => {
+                const rowEmail = row[0];
+                const rowTimestamp = row[2];
+                if (rowEmail === email && rowTimestamp) {
+                    const submissionDate = new Date(rowTimestamp).toDateString();
+                    return submissionDate === today;
+                }
+                return false;
+            });
+        }
+        return false;
+    } catch (error) {
+        console.error("Error checking Google Sheet:", error);
+        // Fail open - allow consultation if sheet check fails
+        return false;
+    }
 }
 
 /**
  * Adds a new entry to the Google Sheet.
  */
-async function addToGoogleSheet(email: string, name: string) {
-    const auth = new google.auth.GoogleAuth({
-        keyFile: KEY_FILE_PATH,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    const sheets = google.sheets({ version: 'v4', auth });
-    await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Sheet1!A:C',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-            values: [[email, name, new Date().toISOString()]],
-        },
-    });
+async function recordConsultation(email: string, name: string) {
+    try {
+        const sheets = await getSheetsClient();
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet1!A:C',
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+                values: [[email, name, new Date().toISOString()]],
+            },
+        });
+    } catch (error) {
+        console.error("Error writing to Google Sheet:", error);
+        // Log the error but don't block the user's response
+    }
 }
 
 export async function POST(request: Request) {
@@ -93,26 +91,20 @@ export async function POST(request: Request) {
     }
 
     const selectedCard: OracleCard = card || drawRandomCard();
-    let responseText;
     
-    // --- Gemini API Call ---
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
     const prompt = `You are KiaOra Oracle, an intuitive Maori healer specializing in spiritual guidance. User name: "${name || "Seeker"}" User intent/question: "${question}" Card Drawn: "${selectedCard.name}" - "${selectedCard.meaning}" Create a personalized, insightful, and supportive oracle reading integrating the user's intent and the meaning of the card, using a mystical yet reassuring tone aligned with holistic Māori healing practices. Keep your response concise (80-120 words), actionable, and warm.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    responseText = response.text();
-    // --- End Gemini API Call ---
+    const responseText = response.text() || "The oracle is silent at this moment. Please try again later.";
 
-    if (!responseText) {
-        responseText = "The oracle is silent at this moment. Please try again later.";
-    }
-
-    // Update submission records and send email
+    // Record consultation and send email
     if (email) {
-        await updateSubmissionTime(email);
-        await addToGoogleSheet(email, name);
-        await sendOracleConsultation(email, question, responseText, name);
+        // We use `await` here but don't let it block the response to the user.
+        // The recording and emailing can happen in the background.
+        recordConsultation(email, name);
+        sendOracleConsultation(email, question, responseText, name);
     }
     
     return NextResponse.json({

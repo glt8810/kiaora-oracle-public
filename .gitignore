@@ -39,5 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-kiaora-oracle-a36c160aed51.json
