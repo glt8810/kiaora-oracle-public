@@ -21,6 +21,18 @@ interface CardInfo {
   image: string;
 }
 
+// Helper function to format the date as mm/dd/yyyy hh:mm:ss
+const formatLocaleDateTime = (date: Date): string => {
+  const pad = (num: number) => num.toString().padStart(2, '0');
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const year = date.getFullYear();
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
+};
+
 export default function ConsultationForm() {
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState("");
@@ -34,10 +46,11 @@ export default function ConsultationForm() {
   const handleEmailSubmit = (email: string, name: string) => {
     setShowEmailForm(false);
     document.body.classList.remove("email-form-active");
+    const localTimestamp = formatLocaleDateTime(new Date());
 
     // Now fetch the oracle response with the selected card
     if (selectedCard) {
-      fetchOracleResponse(selectedCard, email, name);
+      fetchOracleResponse(selectedCard, email, name, localTimestamp);
     }
   };
 
@@ -58,7 +71,8 @@ export default function ConsultationForm() {
   const fetchOracleResponse = async (
     selectedCard: OracleCard,
     email: string,
-    name: string
+    name: string,
+    timestamp: string
   ) => {
     try {
       setLoading(true);
@@ -72,6 +86,7 @@ export default function ConsultationForm() {
           card: selectedCard,
           email,
           name,
+          timestamp,
         }),
       });
 

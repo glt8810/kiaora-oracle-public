@@ -59,7 +59,7 @@ async function hasConsultedToday(email: string): Promise<boolean> {
 /**
  * Adds a new entry to the Google Sheet.
  */
-async function recordConsultation(email: string, name: string) {
+async function recordConsultation(email: string, name: string, timestamp: string) {
     try {
         const sheets = await getSheetsClient();
         await sheets.spreadsheets.values.append({
@@ -67,7 +67,7 @@ async function recordConsultation(email: string, name: string) {
             range: 'Sheet1!A:C',
             valueInputOption: 'USER_ENTERED',
             requestBody: {
-                values: [[email, name, new Date().toISOString()]],
+                values: [[email, name, timestamp]],
             },
         });
     } catch (error) {
@@ -78,7 +78,7 @@ async function recordConsultation(email: string, name: string) {
 
 export async function POST(request: Request) {
   try {
-    const { question, card, email, name } = await request.json();
+    const { question, card, email, name, timestamp } = await request.json();
 
     if (!question) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
 
     const selectedCard: OracleCard = card || drawRandomCard();
     
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `You are KiaOra Oracle, an intuitive Maori healer specializing in spiritual guidance. User name: "${name || "Seeker"}" User intent/question: "${question}" Card Drawn: "${selectedCard.name}" - "${selectedCard.meaning}" Create a personalized, insightful, and supportive oracle reading integrating the user's intent and the meaning of the card, using a mystical yet reassuring tone aligned with holistic Māori healing practices. Keep your response concise (80-120 words), actionable, and warm.`;
 
     const result = await model.generateContent(prompt);
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     if (email) {
         // We use `await` here but don't let it block the response to the user.
         // The recording and emailing can happen in the background.
-        recordConsultation(email, name);
+        recordConsultation(email, name, timestamp);
         sendOracleConsultation(email, question, responseText, name);
     }
     

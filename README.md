@@ -1,6 +1,6 @@
 # KiaOra Oracle
 
-A mystical web application built with Next.js, TypeScript, Shadcn UI, TailwindCSS, OpenAI, Resend, and Supabase.
+A mystical web application built with Next.js, TypeScript, Shadcn UI, TailwindCSS, Google Gemini, Resend, and Google Sheets.
 
 ## Features
 
@@ -8,7 +8,7 @@ A mystical web application built with Next.js, TypeScript, Shadcn UI, TailwindCS
 - Custom typography with The Seasons, Circe Contrast, and Quincy fonts
 - Integration with OpenAI for oracle responses
 - Email notifications with Resend
-- Data storage with Supabase
+- Daily submission limit enforced using Google Sheets
 
 ## Color Palette
 
@@ -39,7 +39,7 @@ A mystical web application built with Next.js, TypeScript, Shadcn UI, TailwindCS
 3. Create a `.env.local` file with your API keys:
    ```
    # OpenAI API Key
-   OPENAI_API_KEY=your_openai_api_key_here
+   GEMINI_API_KEY=your_gemini_api_key_here
 
    # Resend API Key
    RESEND_API_KEY=your_resend_api_key_here
@@ -47,10 +47,9 @@ A mystical web application built with Next.js, TypeScript, Shadcn UI, TailwindCS
    # Sender Email
    DEVELOPER_EMAIL=your_sender_email_here
 
-   # Supabase Configuration
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+   # Google Sheets Configuration
+   GOOGLE_SHEET_ID=your_spreadsheet_id_here
+   GOOGLE_SERVICE_ACCOUNT_JSON={"type": "service_account", ...}
    ```
 4. Add your custom fonts to the `public/fonts` directory
 5. Run the development server:
