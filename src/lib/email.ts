@@ -58,7 +58,7 @@ export async function sendOracleConsultation(
     });
 
     if (error) {
-      console.error("Error sending email:", error);
+      console.error("Error sending email via Resend. Full error object:", JSON.stringify(error, null, 2));
       return false;
     }
 
@@ -68,8 +68,15 @@ export async function sendOracleConsultation(
       }`
     );
     return true;
-  } catch (error) {
-    console.error("Failed to send email:", error);
+  } catch (error: any) {
+    console.error("Caught exception in sendOracleConsultation. Full error object:", JSON.stringify(error, null, 2));
+    // Log specific properties if available
+    if (error.message) {
+      console.error("Error message:", error.message);
+    }
+    if (error.stack) {
+      console.error("Error stack:", error.stack);
+    }
     return false;
   }
 }

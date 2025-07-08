@@ -169,7 +169,16 @@ export async function POST(request: Request) {
 
     // Send email only if email was provided and sheet operation was successful
     if (email && sheetOperationSuccessful) {
-        sendOracleConsultation(email, question, responseText, name); // Async, don't need to await if not critical path
+        const emailSentSuccessfully = await sendOracleConsultation(email, question, responseText, name);
+        if (!emailSentSuccessfully) {
+            // Log the error and inform the client, but still return the oracle response
+            console.error(`Failed to send consultation email to ${email}. Oracle response was generated.`);
+            // Optionally, you could choose to return a more specific error to the client here if email is critical
+            // For now, we'll let the main response proceed but log the email failure.
+            // Consider if this should be a hard failure for the user.
+            // If email is critical, you might do:
+            // return NextResponse.json({ error: "Oracle response generated, but failed to send email." }, { status: 500 });
+        }
     }
     
     return NextResponse.json({
